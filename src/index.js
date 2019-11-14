@@ -78,14 +78,6 @@ class AutoComplete extends React.Component {
     const matches = AutosuggestHighlightMatch(streetAddress, query);
     const parts = AutosuggestHighlightParse(streetAddress, matches);
 
-    console.group("Highlight");
-    console.log("Query param: " + query);
-    parts.map((part, index) => {
-      console.log("text: " + part.text);
-      console.log("is highlighted: " + part.highlight);
-    });
-    console.groupEnd();
-
     return (
         (streetAddress) ? (
             <span>
@@ -458,38 +450,33 @@ class AutoComplete extends React.Component {
                       </div>
                     </div>
                     <div>
-                      <div data-ref="additional" className="additional-info">
-                        <p>Дополнительная информация:</p>
-                        <table>
-                          <tbody>
 
-                          <tr>
-                            <td>Уровень по ФИАС</td>
-                            <td data-ref="fias-level">{this.state.selectedStreet.aoLevel}</td>
-                          </tr>
-                          <tr>
-                            <td>Код ФИАС</td>
-                            <td data-ref="fias-codes"> {this.state.selectedStreet.fiasCode}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td>Код КЛАДР</td>
-                            <td data-ref="kladr-id">{this.state.selectedStreet.kladrCode}</td>
-                          </tr>
-                          <tr>
-                            <td>Код ОКАТО</td>
-                            <td data-ref="okato">{this.state.selectedStreet.okato}</td>
-                          </tr>
-                          <tr>
-                            <td>Код ОКТМО</td>
-                            <td data-ref="oktmo">{this.state.selectedStreet.oktmo}</td>
-                          </tr>
-                          <tr>
-                            <td>Код ИФНС</td>
-                            <td data-ref="tax-office">{this.state.selectedStreet.fnsCode}</td>
-                          </tr>
-                          </tbody>
-                        </table>
+                      <div className="brave__additional">
+                        <h5>Дополнительная информация</h5>
+                        <p>
+                          <b className="brave__label">Код ФИАС</b><div>
+                          {this.state.selectedStreet.fiasCode}</div>
+                        </p>
+                        <p>
+                          <b className="brave__label">Код КЛАДР</b>
+                          <div>{this.state.selectedStreet.kladrCode}</div>
+                        </p>
+                        <p>
+                          <b className="brave__label">Код ОКАТО</b>
+                          <div>{this.state.selectedStreet.okato}</div>
+                        </p>
+                        <p>
+                          <b className="brave__label">Код ОКТМО</b>
+                          <div>{this.state.selectedStreet.oktmo}</div>
+                        </p>
+                        <p>
+                          <b className="brave__label">Код налоговой</b>
+                          <div>{this.state.selectedStreet.fnsCode}</div>
+                        </p>
+                        <p>
+                          <b className="brave__label">Уровень по ФИАС</b>
+                          <div>{this.state.selectedStreet.aoLevel}</div>
+                        </p>
                       </div>
                     </div>
 

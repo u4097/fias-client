@@ -238,7 +238,7 @@ input[type="text"], input[type="email"], input[type="password"], input[type="tel
 }
 
 .additional-info {
-  margin-top: 20px;
+  padding-top: 2rem;
 }
 
 .plaintabs__content {
@@ -251,6 +251,10 @@ input[type="text"], input[type="email"], input[type="password"], input[type="tel
 
 .plaintabs__tab--active {
   display: block;
+}
+
+.align-right {
+  text-align: right;
 }
 
 /*AUTOSUGGEST*/
@@ -312,12 +316,26 @@ input[type="text"], input[type="email"], input[type="password"], input[type="tel
 }
 
 .react-autosuggest__suggestion-match {
-  color: #6dc3ff;
+  color: #0066cc;
   font-weight: 700;
 }
 
 li:empty
 {
   display:none;
+}
+.brave__additional{
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+.brave__label{
+  font-family: 'Roboto', Tahoma, Geneva, sans-serif;
+  line-height: 1.3;
+  -webkit-font-smoothing: antialiased;
+  box-sizing: inherit;
+  font-weight: normal;
+  font-size: 0.8rem;
+  color: #646973;
 }
 
