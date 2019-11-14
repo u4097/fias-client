@@ -1,0 +1,43 @@
+[
+ POST customer/_doc/1
+  {
+    "fullName": "Rachel Karen Green",
+    "shortCode": "RKG10",
+    "createdDate": "2018-10-10"
+  }
+
+  POST customer/_doc/2
+  {
+    "fullName": "Monica Eustace Geller",
+    "shortCode": "MEG52",
+    "createdDate": "2018-01-12"
+  }
+
+  POST customer/_doc/3
+  {
+    "fullName": "Ross Eustace Geller",
+    "shortCode": "REG12",
+    "createdDate": "2018-02-21"
+  }
+
+  POST customer/_doc/4
+  {
+    "fullName": "Chandler Muriel Bin",
+    "shortCode": "CMB14",
+    "createdDate": "2018-02-21"
+  }
+
+  POST customer/_doc/5
+  {
+    "fullName": "Phoebe Buffay",
+    "shortCode": "PBF01",
+    "createdDate": "2018-04-12"
+  }
+
+  POST customer/_doc/6
+  {
+    "fullName": "Joey Francis Tribbiani",
+    "shortCode": "JFT99",
+    "createdDate": "2018-05-15"
+  }
+]
