@@ -1,6 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import Autosuggest from 'react-autosuggest'
+import AutosuggestHighlightMatch from "autosuggest-highlight/umd/match";
+import AutosuggestHighlightParse from "autosuggest-highlight/umd/parse";
 import axios from 'axios'
 import {debounce} from 'throttle-debounce'
 import packageJson from '../package.json';
@@ -52,26 +54,53 @@ class AutoComplete extends React.Component {
   };
 
   // Выводим список найденых адресов в options list
-  renderAddressList = street => {
+  renderAddressList = (street, {query}) => {
+    /*
+    */
     if (!street.settlement || !street.street) {
       return ""
     }
 
-    const streetAddress = (
-        <div className="result">
-          <span>{street.district_type}&nbsp;</span>
-          <span>{street.district + ","}&nbsp;</span>
-          <span>{street.settlement_type}&nbsp;</span>
-          <span>{street.settlement + ","}&nbsp;</span>
-          <span>{street.street_type}&nbsp;</span>
-          {(street.house) ? (
-                  <span>{street.street + ' д ' + street.house}&nbsp;</span>)
-              : (<span>{street.street}&nbsp;</span>)}
-        </div>
-    );
+    const streetNoHouse = street.district_type + " " +
+        street.district + ", " +
+        street.settlement_type + " " +
+        street.settlement + ", " +
+        street.street_type + " " + street.street;
+
+    const streetWithHouse = street.district_type + " " +
+        street.district + ", " +
+        street.settlement_type + " " +
+        street.settlement + ", " +
+        street.street_type + " " + street.street + ' д ' + street.house;
+
+    const streetAddress = (street.house) ? (streetWithHouse) : (streetNoHouse);
+
+    const matches = AutosuggestHighlightMatch(streetAddress, query);
+    const parts = AutosuggestHighlightParse(streetAddress, matches);
+
+    console.group("Highlight");
+    console.log("Query param: " + query);
+    parts.map((part, index) => {
+      console.log("text: " + part.text);
+      console.log("is highlighted: " + part.highlight);
+    });
+    console.groupEnd();
 
     return (
-        (streetAddress) ? (streetAddress) : ""
+        (streetAddress) ? (
+            <span>
+      {parts.map((part, index) => {
+        const className = part.highlight ? 'react-autosuggest__suggestion-match'
+            : null;
+
+        return (
+            <span className={className} key={index}>
+            {part.text}
+          </span>
+        );
+      })}
+    </span>
+        ) : ""
     )
   };
 
@@ -111,7 +140,6 @@ class AutoComplete extends React.Component {
       const isHasHouse = /\.*\s+\d+.*$/.test(queryStr);
       this.setState({isHouseInQueryStr: isHasHouse});
 
-
       console.log("%cПоиск по адресу набранному вручную: ",
           "font-size:12px;font-weight:bold");
       //Очищаем адрес от номера дома
@@ -132,7 +160,6 @@ class AutoComplete extends React.Component {
       queryStr = queryStr.replace(/пр-кт\s+/g, '')
       queryStr = queryStr.replace(/,/g, " ")
       queryStr = queryStr.replace(/ +(?= )/g, '')
-
 
       console.log("Строка: " + "%c" + queryStr,
           "font-size:12px;font-weight:bold;color:green");
@@ -377,7 +404,8 @@ class AutoComplete extends React.Component {
                         <div><input
                             data-ref="region" type="text" readOnly="readonly"
                             className="sgt-granular_input"
-                            value={(this.state.selectedStreet.district !== 'Мордовия')
+                            value={(this.state.selectedStreet.district
+                                !== 'Мордовия')
                                 ? (this.state.selectedStreet.district) : ""}/>
                         </div>
                       </div>
@@ -388,9 +416,12 @@ class AutoComplete extends React.Component {
                         <div>
                           <input data-ref="city" type="text" readOnly="readonly"
                                  className="sgt-granular_input"
-                                 value={(this.state.selectedStreet.settlement_type) ?
-                                     (this.state.selectedStreet.settlement_type + " "
-                                         + this.state.selectedStreet.settlement) :
+                                 value={(this.state.selectedStreet.settlement_type)
+                                     ?
+                                     (this.state.selectedStreet.settlement_type
+                                         + " "
+                                         + this.state.selectedStreet.settlement)
+                                     :
                                      (this.state.selectedStreet.settlement)}/>
                           <div className="sgt-demo__additional">
                             центр региона

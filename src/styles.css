@@ -307,7 +307,17 @@ input[type="text"], input[type="email"], input[type="password"], input[type="tel
   background-color: #ddd;
 }
 
+.react-autosuggest__suggestion--highlighted {
+  background-color: #ddd;
+}
+
+.react-autosuggest__suggestion-match {
+  color: #6dc3ff;
+  font-weight: 700;
+}
+
 li:empty
 {
   display:none;
 }
+
