@@ -1,4 +1,5 @@
 import React from 'react'
+import stopwords from './stopwords'
 import ReactDOM from 'react-dom'
 import Autosuggest from 'react-autosuggest'
 import AutosuggestHighlightMatch from "autosuggest-highlight/umd/match";
@@ -16,6 +17,7 @@ class AutoComplete extends React.Component {
     selectedStreet: '',
     selectedHouse: ''
   };
+  sw = stopwords.split("\n");
 
   componentWillMount() {
     this.onSuggestionsFetchRequested = debounce(
@@ -114,11 +116,25 @@ class AutoComplete extends React.Component {
    * @param queryStr
    */
   onSuggestionsFetchRequested = ({value: queryStr}) => {
+
+    function remove_stopwords(str, sw) {
+      let res = []
+      let words = str.split(' ')
+      for (let i = 0; i < words.length; i++) {
+        if (!sw.includes(words[i])) {
+          res.push(words[i])
+        }
+      }
+      res = res.join(' ');
+      res = res.replace(/,/g, '')
+      return (res)
+    }
+
     if (queryStr.trim().length > 2) {
 
       console.log("* = = = = = = = = = = = = = = = = = = = = = = = *");
       console.group("Поиск по строке: " + "%c " + queryStr,
-          "background:#1496BB;color:white;font-weight:bold;font-size:12px")
+          "background:#1496BB;color:white;font-weight:bold;font-size:12px");
 
       let selectedHouse = (queryStr.match(/\d+/))
           ? (this.state.queryStr.match(/\d+/)) : "";
@@ -137,95 +153,95 @@ class AutoComplete extends React.Component {
       //Очищаем адрес от номера дома
       queryStr = queryStr.replace(/\s+\d+?.*/g, '').toLowerCase();
       //Очищаем адрес от типа адреса (сокр. г, ул, пр-кт)
-      queryStr = queryStr.replace(/респ\s+/g, '');
-      queryStr = queryStr.replace(/проезд+/g, '')
-      queryStr = queryStr.replace(/г\s+/g, '');
-      queryStr = queryStr.replace(/рп\s+/g, '')
-      queryStr = queryStr.replace(/р-н\s+/g, '')
-      queryStr = queryStr.replace(/д\s+/g, '')
-      queryStr = queryStr.replace(/c\s+/g, '')
-      queryStr = queryStr.replace(/с\s+/g, '')
-      queryStr = queryStr.replace(/п\s+/g, '')
-      queryStr = queryStr.replace(/ст\s+/g, '')
-      queryStr = queryStr.replace(/ул\s+/g, '')
-      queryStr = queryStr.replace(/пер\s+/g, '')
-      queryStr = queryStr.replace(/пр-кт\s+/g, '')
-      queryStr = queryStr.replace(/,/g, " ")
-      queryStr = queryStr.replace(/ +(?= )/g, '')
+
+      queryStr = remove_stopwords(queryStr, this.sw)
 
       console.log("Строка: " + "%c" + queryStr,
           "font-size:12px;font-weight:bold;color:green");
       // }
+      // Сортируем улицу по номерам домов
+      //TODO: Вынести метод в отдельный класс
+      function sortByHouseNumber(houseFirst, houseSecond) {
+        let ax = [], bx = [];
+
+        houseFirst.house.replace(/(\d+)|(\D+)/g, function (_, $1, $2) {
+          ax.push([$1 || Infinity, $2 || ""])
+        });
+        houseSecond.house.replace(/(\d+)|(\D+)/g, function (_, $1, $2) {
+          bx.push([$1 || Infinity, $2 || ""])
+        });
+
+        while (ax.length && bx.length) {
+          let an = ax.shift();
+          let bn = bx.shift();
+          let nn = (an[0] - bn[0]) || an[1].localeCompare(bn[1]);
+          if (nn) {
+            return nn;
+          }
+        }
+
+        return ax.length - bx.length;
+      }
 
       // Выполняем запрос к базе
       // сортируем по районам, нас.пунктам и улицам
+      /*
+      1. Сначала по строке получаем из базы 10 совпавших записей
+      2. Затем по ходу набора фильтруем  зтот список по совпадению со строкой
+      3. При вводе номера у совпавшей улицы ищем набранный номер дома
+      4. Сохраняем результат в структуре.
+
+      При наборе каждых 2-x симолов на сервер отправляется запрос
+       */
       axios
-      .post('/fias_addr_suggest/_search', {
+      .post('/mordovia/_search', {
         size: 10,
         query: {
           match: {
-            'street_address_suggest': queryStr
+            'street_address_suggest': {
+              'query': queryStr,
+              'operator': 'and'
+            }
           }
         },
         sort: ['_score', {district: 'asc'}, {settlement: 'asc'},
           {street: 'asc'}]
       })
       .then(query => {
-        // Получаем результат запроса
-        const street = query.data.hits.hits.map(h => h._source);
+        // Получаем результат запроса (10 записей из базы, которые матчатся с поисковой строкой)
+        // и сохраняем его в street
+        const street = query.data.hits.hits.map(s => s._source);
         // Добавляем в адрес поля для хранения номера дома
         street.push({house: ''});
-
-        // Сортируем улицу по номерам домов
-        //TODO: Вынести метод в отдельный класс
-        function sortByHouseNumber(houseFirst, houseSecond) {
-          let ax = [], bx = [];
-
-          houseFirst.house.replace(/(\d+)|(\D+)/g, function (_, $1, $2) {
-            ax.push([$1 || Infinity, $2 || ""])
-          });
-          houseSecond.house.replace(/(\d+)|(\D+)/g, function (_, $1, $2) {
-            bx.push([$1 || Infinity, $2 || ""])
-          });
-
-          while (ax.length && bx.length) {
-            let an = ax.shift();
-            let bn = bx.shift();
-            let nn = (an[0] - bn[0]) || an[1].localeCompare(bn[1]);
-            if (nn) {
-              return nn;
-            }
-          }
-
-          return ax.length - bx.length;
-        }
 
         let addrSortByStreet = [];
 
         console.groupCollapsed("Поиск по индексу")
+        // Если улица найдена, фильтруем результат по индексу
         if (street) {
           street
-          // Фильтруем по индексу
           .filter(street => {
             console.log("Индекс: " + "%c " + street.street_address_suggest,
                 "background:#222;color:#bada55");
-            console.log("Строка: " + "%c " + queryStr,
+            console.log("Строка запроса: " + "%c " + queryStr,
                 "background:green;color:white");
             if (street.street_address_suggest) {
               if (street.street_address_suggest.toLowerCase().indexOf(
                   queryStr.trim()) > -1) {
-                console.log("%cНайдена: ",
+                console.log("%cнайдена в: ",
                     "background:#C02f1D;color:white;font-size:12px");
               } else {
-                console.warn("%cНе найдена.",
+                console.warn("%cне найдена.",
                     "background:#C02f1D;color:yellow");
               }
+              // Возвращаем все записи которые совпали
               return street.street_address_suggest.toLowerCase().indexOf(
                   queryStr.trim()) > -1;
             } else {
               return false
             }
           })
+          // Дальше отбираем у улиц список домов у которых есть дома с нужным номем
           .map(street => {
             if (street.houses) {
               street.houses
@@ -235,6 +251,7 @@ class AutoComplete extends React.Component {
                   return it.house_num.indexOf(this.state.selectedHouse) > -1;
                 }
               })
+              // Получаем дом с нужным номером
               .map(house => {
                 if (house.house_num) {
 
@@ -247,6 +264,7 @@ class AutoComplete extends React.Component {
                   let houseBuild =
                       (house.build_num) ? (house.build_num.trim()) : ("");
 
+                  // Сохраняем  все что нашли в структуре
                   addrSortByStreet.push({
                     settlement: street.settlement,
                     street: street.street,
@@ -310,13 +328,14 @@ class AutoComplete extends React.Component {
         addrSortByStreet = addrSortByStreet.sort(sortBySettlement);
         addrSortByStreet = addrSortByStreet.sort(sortByStreet);
 
+        // Выводим в консоли результат отобранных адресов c номерами домов
         if (addrSortByStreet.length > 0) {
-          console.log("%cНайден:" + "%c " + addrSortByStreet.length,
+          console.log("%cАдрес найден:" + "%c " + addrSortByStreet.length,
               "background:#F58B4C;color:white",
               "background:white;font-weight:bold");
           console.log("%O", addrSortByStreet);
         } else {
-          console.log("%cНе найден",
+          console.log("%cАдрес не найден",
               "background:#9A2617;color:white;font-weight:bold");
         }
 
@@ -454,8 +473,9 @@ class AutoComplete extends React.Component {
                       <div className="brave__additional">
                         <h5>Дополнительная информация</h5>
                         <p>
-                          <b className="brave__label">Код ФИАС</b><div>
-                          {this.state.selectedStreet.fiasCode}</div>
+                          <b className="brave__label">Код ФИАС</b>
+                          <div>
+                            {this.state.selectedStreet.fiasCode}</div>
                         </p>
                         <p>
                           <b className="brave__label">Код КЛАДР</b>
