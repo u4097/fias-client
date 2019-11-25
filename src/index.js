@@ -10,14 +10,84 @@ import packageJson from '../package.json';
 import './styles.css'
 
 class AutoComplete extends React.Component {
+  INDEX = 'address';
   state = {
     queryStr: '',
     isHouseInQueryStr: false,
     streetList: [],
+    streetHouseList: [],
     selectedStreet: '',
     selectedHouse: ''
   };
   sw = stopwords.split("\n");
+
+  remove_stopwords(str, sw) {
+    let res = []
+    let words = str.split(' ')
+    for (let i = 0; i < words.length; i++) {
+      if (!sw.includes(words[i])) {
+        res.push(words[i])
+      }
+    }
+    res = res.join(' ');
+    res = res.replace(/,/g, '');
+    res = res.replace(/-/g, ' ');
+    return (res)
+  }
+
+  // Сортируем улицу по номерам домов
+  //TODO: Вынести метод в отдельный класс
+  sortByHouseNumber(houseFirst, houseSecond) {
+    let ax = [], bx = [];
+
+    houseFirst.house.replace(/(\d+)|(\D+)/g, function (_, $1, $2) {
+      ax.push([$1 || Infinity, $2 || ""])
+    });
+    houseSecond.house.replace(/(\d+)|(\D+)/g, function (_, $1, $2) {
+      bx.push([$1 || Infinity, $2 || ""])
+    });
+
+    while (ax.length && bx.length) {
+      let an = ax.shift();
+      let bn = bx.shift();
+      let nn = (an[0] - bn[0]) || an[1].localeCompare(bn[1]);
+      if (nn) {
+        return nn;
+      }
+    }
+
+    return ax.length - bx.length;
+  }
+
+  sortByDistrict(addrOne, addrTwo) {
+    if (addrOne.district < addrTwo.district) {
+      return -1;
+    }
+    if (addrOne.district > addrTwo.district) {
+      return 1;
+    }
+    return 0;
+  }
+
+  sortBySettlement(addrOne, addrTwo) {
+    if (addrOne.settlement < addrTwo.settlement) {
+      return -1;
+    }
+    if (addrOne.settlement > addrTwo.settlement) {
+      return 1;
+    }
+    return 0;
+  }
+
+  sortByStreet(addrOne, addrTwo) {
+    if (addrOne.street < addrTwo.street) {
+      return -1;
+    }
+    if (addrOne.street > addrTwo.street) {
+      return 1;
+    }
+    return 0;
+  }
 
   componentWillMount() {
     this.onSuggestionsFetchRequested = debounce(
@@ -43,8 +113,10 @@ class AutoComplete extends React.Component {
 
       console.log(
           street.street_type + ' ' + street.street + ' д '
-          + street.houseNum + 'к' + street.houseBuild);
+          + street.houseNum + ' к ' + street.houseBuild);
       console.log(street);
+
+      console.log("%OStreet house list: ", this.state.streetList)
       this.setState({selectedStreet: street});
       console.groupEnd();
       return (
@@ -117,19 +189,6 @@ class AutoComplete extends React.Component {
    */
   onSuggestionsFetchRequested = ({value: queryStr}) => {
 
-    function remove_stopwords(str, sw) {
-      let res = []
-      let words = str.split(' ')
-      for (let i = 0; i < words.length; i++) {
-        if (!sw.includes(words[i])) {
-          res.push(words[i])
-        }
-      }
-      res = res.join(' ');
-      res = res.replace(/,/g, '')
-      return (res)
-    }
-
     if (queryStr.trim().length > 2) {
 
       console.log("* = = = = = = = = = = = = = = = = = = = = = = = *");
@@ -148,40 +207,18 @@ class AutoComplete extends React.Component {
       const isHasHouse = /\.*\s+\d+.*$/.test(queryStr);
       this.setState({isHouseInQueryStr: isHasHouse});
 
+      // Если дом не выбран ищем по адресу набранному в строке
       console.log("%cПоиск по адресу набранному вручную: ",
           "font-size:12px;font-weight:bold");
+
       //Очищаем адрес от номера дома
       queryStr = queryStr.replace(/\s+\d+?.*/g, '').toLowerCase();
-      //Очищаем адрес от типа адреса (сокр. г, ул, пр-кт)
 
-      queryStr = remove_stopwords(queryStr, this.sw)
+      //Очищаем адрес от типа адреса (сокр. г, ул, пр-кт)
+      queryStr = this.remove_stopwords(queryStr, this.sw)
 
       console.log("Строка: " + "%c" + queryStr,
           "font-size:12px;font-weight:bold;color:green");
-      // }
-      // Сортируем улицу по номерам домов
-      //TODO: Вынести метод в отдельный класс
-      function sortByHouseNumber(houseFirst, houseSecond) {
-        let ax = [], bx = [];
-
-        houseFirst.house.replace(/(\d+)|(\D+)/g, function (_, $1, $2) {
-          ax.push([$1 || Infinity, $2 || ""])
-        });
-        houseSecond.house.replace(/(\d+)|(\D+)/g, function (_, $1, $2) {
-          bx.push([$1 || Infinity, $2 || ""])
-        });
-
-        while (ax.length && bx.length) {
-          let an = ax.shift();
-          let bn = bx.shift();
-          let nn = (an[0] - bn[0]) || an[1].localeCompare(bn[1]);
-          if (nn) {
-            return nn;
-          }
-        }
-
-        return ax.length - bx.length;
-      }
 
       // Выполняем запрос к базе
       // сортируем по районам, нас.пунктам и улицам
@@ -194,7 +231,7 @@ class AutoComplete extends React.Component {
       При наборе каждых 2-x симолов на сервер отправляется запрос
        */
       axios
-      .post('/mordovia/_search', {
+      .post('/' + this.INDEX + '/_search', {
         size: 10,
         query: {
           match: {
@@ -212,31 +249,35 @@ class AutoComplete extends React.Component {
         // и сохраняем его в street
         const street = query.data.hits.hits.map(s => s._source);
         // Добавляем в адрес поля для хранения номера дома
-        street.push({house: ''});
+        // street.push({house: ''});
 
-        let addrSortByStreet = [];
-
+        let streetWithHouses = [];
         console.groupCollapsed("Поиск по индексу")
         // Если улица найдена, фильтруем результат по индексу
         if (street) {
           street
           .filter(street => {
-            console.log("Индекс: " + "%c " + street.street_address_suggest,
-                "background:#222;color:#bada55");
-            console.log("Строка запроса: " + "%c " + queryStr,
-                "background:green;color:white");
             if (street.street_address_suggest) {
-              if (street.street_address_suggest.toLowerCase().indexOf(
-                  queryStr.trim()) > -1) {
-                console.log("%cнайдена в: ",
-                    "background:#C02f1D;color:white;font-size:12px");
+              let suggest = street.street_address_suggest;
+
+              suggest = this.remove_stopwords(suggest, this.sw)
+              console.log(
+                  "Индекс: " + "%c " + suggest,
+                  "background:#222;color:#bada55");
+              console.log("запрос: " + "%c " + queryStr,
+                  "background:green;color:white");
+              if (suggest.indexOf(queryStr.trim()) > -1) {
+                console.log("cовпадение:")
+                console.log("%c" + suggest,
+                    "background:#117A65;color:white;font-size:12px");
               } else {
                 console.warn("%cне найдена.",
                     "background:#C02f1D;color:yellow");
               }
               // Возвращаем все записи которые совпали
-              return street.street_address_suggest.toLowerCase().indexOf(
+              street = suggest.indexOf(
                   queryStr.trim()) > -1;
+              return street;
             } else {
               return false
             }
@@ -245,45 +286,51 @@ class AutoComplete extends React.Component {
           .map(street => {
             if (street.houses) {
               street.houses
-              .filter(it => {
-                if (it.house_num) {
+              //Фильтр по дому
+              .filter(h => {
+                if (h.house_num) {
                   // Фильтруем по номеру дома
-                  return it.house_num.indexOf(this.state.selectedHouse) > -1;
+                  return h.house_num.indexOf(this.state.selectedHouse) > -1;
                 }
               })
               // Получаем дом с нужным номером
-              .map(house => {
-                if (house.house_num) {
+              .map(h => {
+                if (h.house_num) {
 
                   let houseNum =
-                      (house.build_num) ? (house.house_num + "к"
-                          + house.build_num) : (house.house_num);
+                      (h.build_num) ? (h.house_num + "к"
+                          + h.build_num) : (h.house_num);
+                  let strNum =
+                      (h.str_num) ? (h.str_num + "к"
+                          + h.str_num) : (h.str_num);
+
                   let houseNumSuggest =
-                      (house.build_num) ? (" " + house.house_num.trim() + "к"
-                          + house.build_num.trim()) : (" " + house.house_num);
+                      (h.build_num) ? (" " + h.house_num.trim() + "к"
+                          + h.build_num.trim()) : (" " + h.house_num);
                   let houseBuild =
-                      (house.build_num) ? (house.build_num.trim()) : ("");
+                      (h.build_num) ? (h.build_num.trim()) : ("");
 
                   // Сохраняем  все что нашли в структуре
-                  addrSortByStreet.push({
+                  streetWithHouses.push({
                     settlement: street.settlement,
                     street: street.street,
                     house: houseNum.trim(),
                     aoLevel: street.ao_level,
-                    fiasCode: house.house_guid,
-                    kladrCode: street.plain_code + "00" + house.counter,
-                    okato: house.okato,
-                    oktmo: house.oktmo,
-                    fnsCode: house.ifns_fl,
-                    postalCode: house.postal_code,
+                    fiasCode: h.ao_guid,
+                    kladrCode: street.plain_code + "00" + h.counter,
+                    okato: h.okato,
+                    oktmo: h.oktmo,
+                    fnsCode: h.ifns_fl,
+                    postalCode: h.postal_code,
                     district: street.district,
                     district_type: street.district_type.toLowerCase(),
                     settlement_type: street.settlement_type,
                     street_type: street.street_type,
                     streetAddressSuggest: street.street_address_suggest.trim()
                         + houseNumSuggest,
-                    houseNum: house.house_num,
+                    houseNum: h.house_num,
                     houseBuild: houseBuild,
+                    houseStrNum: strNum,
                     houseList: street.houses.length
                   });
                 }
@@ -292,58 +339,31 @@ class AutoComplete extends React.Component {
           });
         }
         console.groupEnd();
-        addrSortByStreet = addrSortByStreet.sort(sortByHouseNumber);
 
-        function sortByDistrict(addrOne, addrTwo) {
-          if (addrOne.district < addrTwo.district) {
-            return -1;
-          }
-          if (addrOne.district > addrTwo.district) {
-            return 1;
-          }
-          return 0;
-        }
-
-        function sortBySettlement(addrOne, addrTwo) {
-          if (addrOne.settlement < addrTwo.settlement) {
-            return -1;
-          }
-          if (addrOne.settlement > addrTwo.settlement) {
-            return 1;
-          }
-          return 0;
-        }
-
-        function sortByStreet(addrOne, addrTwo) {
-          if (addrOne.street < addrTwo.street) {
-            return -1;
-          }
-          if (addrOne.street > addrTwo.street) {
-            return 1;
-          }
-          return 0;
-        }
-
-        addrSortByStreet = addrSortByStreet.sort(sortByDistrict);
-        addrSortByStreet = addrSortByStreet.sort(sortBySettlement);
-        addrSortByStreet = addrSortByStreet.sort(sortByStreet);
+        streetWithHouses = streetWithHouses.sort(this.sortByHouseNumber);
+        streetWithHouses = streetWithHouses.sort(this.sortByDistrict);
+        streetWithHouses = streetWithHouses.sort(this.sortBySettlement);
+        streetWithHouses = streetWithHouses.sort(this.sortByStreet);
 
         // Выводим в консоли результат отобранных адресов c номерами домов
-        if (addrSortByStreet.length > 0) {
-          console.log("%cАдрес найден:" + "%c " + addrSortByStreet.length,
+        if (streetWithHouses.length > 0) {
+          console.log("%cАдрес найден:" + "%c " + streetWithHouses.length,
               "background:#F58B4C;color:white",
               "background:white;font-weight:bold");
-          console.log("%O", addrSortByStreet);
+          console.log("%O", streetWithHouses);
+          this.state.streetList = streetWithHouses
         } else {
           console.log("%cАдрес не найден",
               "background:#9A2617;color:white;font-weight:bold");
+          this.state.streetList = street
         }
 
         if (this.state.isHouseInQueryStr) {
-          this.setState({streetList: addrSortByStreet});
+          this.setState({streetList: streetWithHouses});
         } else {
           this.setState({streetList: street});
         }
+
         console.groupEnd();
         console.log("%c Поиск завершен.", "font-weight:bold")
 

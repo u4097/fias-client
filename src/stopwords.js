@@ -1,5 +1,6 @@
 const stopwords = `
 ,
+ао
 ул
 пер
 д
