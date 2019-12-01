@@ -183,6 +183,13 @@ class AutoComplete extends React.Component {
     this.setState({queryStr: '', selectedStreet: ''})
   };
 
+  toTitleCase(str) {
+    if (str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+    return str
+  }
+
   /**
    * Поиск адреса
    * @param queryStr
@@ -313,7 +320,7 @@ class AutoComplete extends React.Component {
                   // Сохраняем  все что нашли в структуре
                   streetWithHouses.push({
                     settlement: street.settlement,
-                    street: street.street,
+                    street: street.off_name,
                     house: houseNum.trim(),
                     aoLevel: street.ao_level,
                     fiasCode: h.ao_guid,
@@ -417,27 +424,14 @@ class AutoComplete extends React.Component {
                             value={this.state.selectedStreet.postalCode}/></div>
                       <div>
                         <div><label
-                            className="sgt-granular_label">Регион</label>
-                        </div>
-                        <div><input type="text" readOnly="readonly"
-                                    className="sgt-granular_input"
-                                    value={"респ Мордовия"}/>
-                          <div data-ref="federal-district"
-                               className="sgt-demo__additional">Приволжский фед.
-                            округ
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <div><label
-                            className="sgt-granular_label">Район</label>
+                            className="sgt-granular_label">Регион/Район</label>
                         </div>
                         <div><input
                             data-ref="region" type="text" readOnly="readonly"
                             className="sgt-granular_input"
-                            value={(this.state.selectedStreet.district
-                                !== 'Мордовия')
-                                ? (this.state.selectedStreet.district) : ""}/>
+                            value={(this.state.selectedStreet.district)
+                                ? (this.toTitleCase(
+                                    this.state.selectedStreet.district)) : ""}/>
                         </div>
                       </div>
                       <div>
@@ -451,9 +445,11 @@ class AutoComplete extends React.Component {
                                      ?
                                      (this.state.selectedStreet.settlement_type
                                          + " "
-                                         + this.state.selectedStreet.settlement)
+                                         + this.toTitleCase(
+                                             this.state.selectedStreet.settlement))
                                      :
-                                     (this.state.selectedStreet.settlement)}/>
+                                     (this.toTitleCase(
+                                         this.state.selectedStreet.settlement))}/>
                           <div className="sgt-demo__additional">
                             центр региона
                           </div>
@@ -468,7 +464,8 @@ class AutoComplete extends React.Component {
                           className="sgt-granular_input"
                           value={(this.state.selectedStreet.street_type)
                               ? (this.state.selectedStreet.street_type + " "
-                                  + this.state.selectedStreet.street) :
+                                  +
+                                  this.state.selectedStreet.street) :
                               (this.state.selectedStreet.street)}/>
                         <div className="sgt-demo__additional">
                           Число домов на
